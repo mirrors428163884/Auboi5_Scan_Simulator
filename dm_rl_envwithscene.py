@@ -277,8 +277,8 @@ class AuboSceneScanTask(base.Task):
         trace = np.clip(trace, -1.0, 3.0)
         angle_error = np.arccos(np.clip((trace - 1) / 2, -1.0, 1.0))
 
-        reward_pos = 2.0 * np.exp(-2000 * dist)
-        reward_rot = 2.0 * np.exp(-100 * angle_error)
+        reward_pos = 3.0 * np.exp(-2000 * dist)
+        reward_rot = 3.0 * np.exp(-100 * angle_error)
 
         return reward_pos * reward_rot
 
