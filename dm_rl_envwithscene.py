@@ -280,7 +280,19 @@ class AuboSceneScanTask(base.Task):
         reward_pos = 3.0 * np.exp(-2000 * dist)
         reward_rot = 3.0 * np.exp(-100 * angle_error)
 
-        return reward_pos * reward_rot
+        # 获取第5关节角度 (索引为4)
+        q5 = physics.data.qpos[4]
+
+        # 计算离奇异点的距离 (1.5708 rad = 90 deg)
+        dist_to_singularity = abs(abs(q5) - 1.5708)
+
+        # 如果太靠近奇异点 (比如小于 0.1弧度)，给巨大的惩罚
+        if dist_to_singularity < 0.1:
+            reward_singularity = -100.0 * (0.1 - dist_to_singularity)
+        else:
+            reward_singularity = 0.0
+
+        return reward_pos * reward_rot + reward_singularity
 
     def get_termination(self, physics):
         is_safe, reason = self._check_collision_and_height(physics)
