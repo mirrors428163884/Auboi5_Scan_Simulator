@@ -277,8 +277,8 @@ class AuboSceneScanTask(base.Task):
         trace = np.clip(trace, -1.0, 3.0)
         angle_error = np.arccos(np.clip((trace - 1) / 2, -1.0, 1.0))
 
-        reward_pos = 3.0 * np.exp(-2000 * dist)
-        reward_rot = 3.0 * np.exp(-100 * angle_error)
+        reward_pos = 10.0 * np.exp(-2000 * dist)
+        reward_rot = 10.0 * np.exp(-1000 * angle_error)
 
         # 获取第5关节角度 (索引为4)
         q5 = physics.data.qpos[4]
@@ -287,8 +287,9 @@ class AuboSceneScanTask(base.Task):
         dist_to_singularity = abs(abs(q5) - 1.5708)
 
         # 如果太靠近奇异点 (比如小于 0.1弧度)，给巨大的惩罚
-        if dist_to_singularity < 0.1:
-            reward_singularity = -100.0 * (0.1 - dist_to_singularity)
+        if dist_to_singularity < 0.005:
+            reward_singularity = -5.0 * (0.1 - dist_to_singularity)
+            # print(q5)
         else:
             reward_singularity = 0.0
 

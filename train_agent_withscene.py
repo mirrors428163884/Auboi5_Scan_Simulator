@@ -123,7 +123,7 @@ if __name__ == "__main__":
     print(f"目标: 探测器末端需对准样品 {load_env().task.path_points[0][:3]} 附近...")
 
     try:
-        model.learn(total_timesteps=10000000, callback=checkpoint_callback)
+        model.learn(total_timesteps=20000000, callback=checkpoint_callback)
     except KeyboardInterrupt:
         print("手动停止训练，正在保存...")
     finally:

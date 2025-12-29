@@ -228,7 +228,7 @@ def main():
 
             if dist_err != -1.0:
                 print(f"Step:{step_count:04d} | R:{reward:6.1f} | "
-                      f"Err:{dist_err * 1000:5.1f}mm | Ang:{ang_err:5.1f}° | "
+                      f"Err:{dist_err * 1000:5.2f}mm | Ang:{ang_err:5.2f}° | "
                       f"TipZ:{tip_z:.3f}m | {status_str}")
 
         # --- 画面渲染 ---
@@ -239,9 +239,9 @@ def main():
             # 绘制数据
             dist_err = info.get('dist_error', 0.0)
             if dist_err != -1.0:
-                cv2.putText(bgr_array, f"Err: {dist_err * 1000:.1f} mm", (10, 30),
+                cv2.putText(bgr_array, f"Err: {dist_err * 1000:.2f} mm", (10, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-                cv2.putText(bgr_array, f"Ang: {info.get('ang_error', 0):.1f} deg", (10, 60),
+                cv2.putText(bgr_array, f"Ang: {info.get('ang_error', 0):.2f} deg", (10, 60),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
 
             # 绘制警告
