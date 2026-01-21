@@ -26,9 +26,9 @@ SAMPLE_PATH = "models/sample.STL"   # 待扫描样品模型
 END_JOINT = "wrist3_Link"    # 末端执行器名称
 ROBOTICARM_MODEL_PATH = "mjcf/aubo_i5_withcam.xml"    # 机械臂模型 MJCF/urdf 文件
 CAM_RES =(1280, 1280)    # 同步摄像头分辨率。 是清晰度与FPS的平衡点
-SAMPLE_OFFSET = [0.0, -0.54, 0.2]   # 仿真场景的坐标偏移，需根据 xml 调整
+SAMPLE_OFFSET = [0.0, -0.49, 0.2]   # 仿真场景的坐标偏移，需根据 xml 调整
 # [-0.25, -0.6, 0.2] curve_model
-# [0.0, -0.54, 0.2] sample
+# [0.0, -0.49, 0.2] sample
 
 
 class RobotPathInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):

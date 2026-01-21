@@ -3,19 +3,19 @@ import numpy as np
 import os
 import math
 
-INPUT_FILE = 'models/detector.stl'
-OUTPUT_FILE = 'models/detector_output.stl'
+INPUT_FILE = 'models/side_holder.stl'
+OUTPUT_FILE = 'models/side_holder_output.stl'
 
 # 1. 缩放因子
 # 0.001 表示将毫米转换为米 (1/1000)，1.0 表示不缩放
-SCALE_FACTOR = 1.0
+SCALE_FACTOR = 0.001
 
 # 2. 旋转角度 (单位：度)
 # Roll  (翻滚): 绕 X 轴旋转
 # Pitch (俯仰): 绕 Y 轴旋转
 # Yaw   (偏航): 绕 Z 轴旋转 (原有的旋转)
 # 正数通常表示逆时针，负数表示顺时针
-ROTATE_ROLL_DEG = -90.0  # 绕 X 轴
+ROTATE_ROLL_DEG = 0.0  # 绕 X 轴
 ROTATE_PITCH_DEG = 0.0  # 绕 Y 轴
 ROTATE_YAW_DEG = 0.0  # 绕 Z 轴
 

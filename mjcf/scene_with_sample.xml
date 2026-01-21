@@ -17,6 +17,9 @@
         <mesh name="sample_model" file="../models/sample.STL"/>
         <material name="sample_material" rgba="0.5 0.5 0.5 1" specular="0.5" shininess="0.5"/>
         <material name="box_material" rgba="0.3 0.3 0.3 1" specular="0.4" shininess="0.3"/>
+        <mesh name="sample_holder" file="../models/sample_holder.stl"/>
+        <mesh name="up_holder" file="../models/up_holder.stl"/>
+        <mesh name="side_holder" file="../models/side_holder.stl"/>
     </asset>
 
     <worldbody>
@@ -32,24 +35,45 @@
                   conaffinity="0"/>
         </body>
 
-        <body name="sample_object" pos="0.0 -0.54 0.2">
+        <body name="sample_object" pos="0.0 -0.49 0.2">
 
             <!-- 使整个物体可以被推动，如果想固定不动，注释掉这行 -->
             <freejoint name="object_joint"/>
 
             <!-- size="x y z" 表示半边长 -->
-            <geom name="base_box" type="box" size="0.13 0.08 0.1"
-                  pos="0.0 0.0 -0.1"
+            <geom name="base_box" type="box" size="0.328 0.138 0.1"
+                  pos="0.025 0.05 -0.1"
                   material="box_material"
                   rgba="0.3 0.3 0.3 1"
                   mass="2.0"
                   friction="1 0.5 0.01"/>
 
             <!-- 让曲面模型的局部原点正好落在长方体上表面 -->
+            <geom name="sample_holder" type="mesh"
+                  mesh="sample_holder"
+                  material="sample_material"
+                  pos="-0.3 -0.08 0"
+                  mass="5.0"
+                  friction="1 0.5 0.01"/>
+
+            <geom name="up_holder" type="mesh"
+                  mesh="up_holder"
+                  material="sample_material"
+                  pos="0.0165 0.1 0.01"
+                  mass="0.2"
+                  friction="1 0.5 0.01"/>
+
+            <geom name="side_holder" type="mesh"
+                  mesh="side_holder"
+                  material="sample_material"
+                  pos="0.3 -0.06 0.01"
+                  mass="0.2"
+                  friction="1 0.5 0.01"/>
+
             <geom name="sample_surface" type="mesh"
                   mesh="sample_model"
                   material="sample_material"
-                  pos="0 0 0"
+                  pos="0 0 0.0"
                   mass="0.3"
                   friction="1 0.5 0.01"/>
         </body>
