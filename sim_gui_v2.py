@@ -2,7 +2,7 @@ import os
 import sys
 
 # ==============================================================================
-# [底层修复 1] 环境变量清理 (防止 OpenCV/Qt 冲突)
+# [底层修复 1] 环境变量清理
 # ==============================================================================
 if "QT_QPA_PLATFORM_PLUGIN_PATH" in os.environ:
     del os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"]
@@ -36,24 +36,23 @@ import glfw
 from pyvistaqt import QtInteractor
 from scipy.spatial.transform import Rotation as R
 
-# 尝试导入依赖
 try:
     import curve_utils
     from casadi_ik import Kinematics
 except ImportError:
     print("错误: 缺少依赖文件 curve_utils.py 或 casadi_ik.py")
 
-# --- 常量定义 (保持原有配置) ---
+# --- 常量定义 ---
 SCENE_XML_PATH = os.path.join("mjcf", "scene_with_sample.xml")
 SAMPLE_PATH = os.path.join("models", "sample.STL")
-ROBOTICARM_MODEL_PATH = os.path.join("mjcf", "aubo_i5_withdetector.xml")
+ROBOTICARM_MODEL_PATH = os.path.join("mjcf", "aubo_i5_withcam.xml")
 
 END_JOINT = "wrist3_Link"
 CAM_RES = (1280, 1280)
 SAMPLE_OFFSET = [0.0, -0.49, 0.2]
 TCP_OFFSET = np.array([0.0, 0.067, 0.0965])
 
-# 【位置更新】ArUco 标定板位置
+# 【位置确认】ArUco 标定板位置
 ARUCO_POS = [-0.236, -0.365, 0.212]
 
 
@@ -73,7 +72,6 @@ class ArUcoInjector:
         with open(xml_path, 'r', encoding='utf-8') as f:
             xml_content = f.read()
 
-        # 【纹理加密】8x8 格子 (texrepeat="4 4")
         asset_str = """
         <asset>
             <texture name="aruco_tex" type="2d" builtin="checker" rgb1="0.0 0.0 0.0" rgb2="1.0 1.0 1.0" width="512" height="512" mark="none"/>
@@ -81,10 +79,13 @@ class ArUcoInjector:
         </asset>
         """
 
+        # 【关键修复】添加 contype="0" conaffinity="0"
+        # 这会关闭该物体的物理碰撞检测，使其成为“幽灵”物体
+        # 即使它插入到桌子内部，也不会产生排斥力炸飞桌子
         body_str = f"""
         <body name="aruco_board" pos="{position[0]} {position[1]} {position[2]}" euler="0 0 0">
-            <geom type="box" size="0.06 0.06 0.001" material="aruco_mat" />
-            <geom type="box" size="0.065 0.065 0.0005" rgba="0.1 0.1 0.1 1" pos="0 0 -0.001"/>
+            <geom type="box" size="0.06 0.06 0.001" material="aruco_mat" contype="0" conaffinity="0"/>
+            <geom type="box" size="0.065 0.065 0.0005" rgba="0.1 0.1 0.1 1" pos="0 0 -0.001" contype="0" conaffinity="0"/>
         </body>
         """
 
@@ -110,10 +111,6 @@ class ArUcoInjector:
 
 
 class EnhancedSimulator:
-    """
-    集成原 mjplayground_sim.py 功能 + RL + 标定
-    """
-
     def __init__(self, xml_path, end_joint, robot_model_path, cam_res=(1280, 1280)):
         self.xml_path = xml_path
         self.end_joint = end_joint
@@ -236,30 +233,28 @@ class EnhancedSimulator:
         return T
 
     def step(self):
-        if self.paused:
-            if self.viewer.is_running():
-                self.viewer.sync()
-            return
-
-        if self.path_points is not None:
-            now = time.time()
-            if not self.calibration_mode:
-                if now - self.last_scan_time > self.scan_interval:
-                    self.current_idx = (self.current_idx + 1) % len(self.path_points)
-                    self.last_scan_time = now
-            else:
-                if now - self.last_scan_time > 0.02:
-                    if self.current_idx < len(self.path_points) - 1:
-                        self.current_idx += 1
+        # 1. 物理/逻辑更新层
+        if not self.paused:
+            if self.path_points is not None:
+                now = time.time()
+                if not self.calibration_mode:
+                    if now - self.last_scan_time > self.scan_interval:
+                        self.current_idx = (self.current_idx + 1) % len(self.path_points)
                         self.last_scan_time = now
+                else:
+                    if now - self.last_scan_time > 0.02:
+                        if self.current_idx < len(self.path_points) - 1:
+                            self.current_idx += 1
+                            self.last_scan_time = now
 
-        self.perform_ik_step()
+            self.perform_ik_step()
 
-        for _ in range(self.n_substeps):
-            if self.target_qpos is not None:
-                self.data.ctrl[:6] = self.target_qpos
-            mujoco.mj_step(self.model, self.data)
+            for _ in range(self.n_substeps):
+                if self.target_qpos is not None:
+                    self.data.ctrl[:6] = self.target_qpos
+                mujoco.mj_step(self.model, self.data)
 
+        # 2. 渲染同步层 (强制刷新，防止暂停时标记消失)
         if self.viewer.is_running():
             self.viewer.user_scn.ngeom = 0
             self._add_markers(self.viewer.user_scn)
@@ -297,7 +292,6 @@ class EnhancedSimulator:
         try:
             q_sol, info = self.ik_solver.ik(T_wrist, current_arm_motor_q=init_q)
             if info["success"]:
-                # 解除严格限制，允许 Snap-to-Start
                 self.target_qpos = np.clip(q_sol, self.model.jnt_range[:6, 0], self.model.jnt_range[:6, 1])
             else:
                 if self.calibration_mode:
@@ -398,20 +392,25 @@ class EnhancedSimulator:
         scene.ngeom += 1
 
         if self.path_points is not None and len(self.path_points) > 0:
-            # 当前点
+            # 当前点 (红色小球)
             pt = self.path_points[self.current_idx]
             pos = pt[:3] if len(pt) >= 3 else pt
+
+            # 增加 3mm 的 Z 轴偏移，防止Z-fighting
+            display_pos = pos.copy()
+            display_pos[2] += 0.003
+
             mujoco.mjv_initGeom(
                 scene.geoms[scene.ngeom],
                 type=mujoco.mjtGeom.mjGEOM_SPHERE,
-                size=[0.005, 0, 0],
-                pos=pos,
+                size=[0.006, 0, 0],
+                pos=display_pos,
                 mat=np.eye(3).flatten(),
                 rgba=[1, 0, 0, 1]
             )
             scene.ngeom += 1
 
-            # 目标点 (Green)
+            # 目标点 (绿色小球)
             if self.T_target_cache is not None:
                 pt_tcp = self.T_target_cache[:3, 3]
                 mujoco.mjv_initGeom(
@@ -436,7 +435,7 @@ class EnhancedSimulator:
         glfw.terminate()
 
 
-# --- GUI 主类 (完整恢复) ---
+# --- GUI 主类 ---
 
 class RobotPathInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
     def __init__(self, parent=None):
@@ -492,7 +491,6 @@ class MainWindow(QMainWindow):
         self.step_size = 10.0
         self.sim = None
 
-        # 性能优化
         self.render_skip_counter = 0
         self.fps_counter = 0
         self.last_fps_time = time.time()
@@ -515,13 +513,9 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         layout = QHBoxLayout(central)
 
-        # 左侧控制栏
         left_layout = QVBoxLayout()
         left_layout.addWidget(self.create_settings_panel())
-
-        # 【新增】高级控制面板 (RL + 标定)
         left_layout.addWidget(self.create_advanced_panel())
-
         left_layout.addWidget(self.create_control_panel())
         left_layout.addStretch()
 
@@ -530,7 +524,6 @@ class MainWindow(QMainWindow):
         left_container.setFixedWidth(400)
         layout.addWidget(left_container)
 
-        # 右侧显示面板
         right_panel = QWidget()
         r_layout = QVBoxLayout(right_panel)
 
@@ -552,7 +545,6 @@ class MainWindow(QMainWindow):
         frame = QFrame()
         vbox = QVBoxLayout(frame)
 
-        # 模式选择
         grp = QGroupBox("模式选择")
         v = QVBoxLayout()
         self.rb_spiral = QRadioButton("Spiral (螺旋扫描)")
@@ -564,7 +556,6 @@ class MainWindow(QMainWindow):
         grp.setLayout(v)
         vbox.addWidget(grp)
 
-        # 参数设置
         grp_p = QGroupBox("基本参数")
         f = QFormLayout()
         self.inp_step = QLineEdit("10.0")
@@ -591,7 +582,6 @@ class MainWindow(QMainWindow):
         grp_p.setLayout(f)
         vbox.addWidget(grp_p)
 
-        # ROI 区域限制 (恢复完整功能)
         grp_roi = QGroupBox("ROI 区域限制 (不限留空)")
         g_roi = QFormLayout()
         self.inp_xmin = QLineEdit()
@@ -740,7 +730,6 @@ class MainWindow(QMainWindow):
         return np.array([x, y, self.trimesh_obj.bounds[1, 2]])
 
     def generate_and_send(self):
-        # 完整恢复原有的路径生成和可视化逻辑
         if not self.trimesh_obj: return
         self.step_size = self.get_float(self.inp_step, 10.0)
         z_thresh = self.get_float(self.inp_z_thresh, 0.2)
@@ -826,7 +815,6 @@ class MainWindow(QMainWindow):
 
             self.sim.set_path(pts_m, normals, height=scan_h)
 
-            # 更新状态显示
             self.lbl_progress.setText(f"Path Generated: {len(points)} points")
             self.activateWindow()
             self.setFocus()
@@ -865,7 +853,6 @@ class MainWindow(QMainWindow):
             self.lbl_cam_robot.setPixmap(np2pixmap(img_r))
             self.lbl_cam_global.setPixmap(np2pixmap(img_g))
 
-            # FPS Stats
             self.fps_counter += 1
             if time.time() - self.last_fps_time >= 1.0:
                 self.current_fps = self.fps_counter * 2
@@ -880,7 +867,6 @@ class MainWindow(QMainWindow):
             self.lbl_status.setText(f"FPS:{self.current_fps} | [{state}] {mode}")
             self.lbl_progress.setText(f"Point: {idx + 1} / {total}")
 
-            # Update 3D Highlight
             if len(self.current_points) > idx and not self.sim.calibration_mode:
                 current_pos = self.current_points[idx]
                 self.plotter.add_mesh(
