@@ -638,9 +638,9 @@ class MainWindow(QMainWindow):
 
         grp_calib = QGroupBox("系统标定")
         v_cal = QVBoxLayout()
-        lbl_info = QLabel(f"ArUco 位置: {ARUCO_POS}")
-        lbl_info.setStyleSheet("font-size: 8pt; color: #888;")
-        v_cal.addWidget(lbl_info)
+        # lbl_info = QLabel(f"ArUco 位置: {ARUCO_POS}")
+        # lbl_info.setStyleSheet("font-size: 8pt; color: #888;")
+        # v_cal.addWidget(lbl_info)
 
         self.btn_calib = QPushButton("执行手眼标定动作")
         self.btn_calib.clicked.connect(self.start_calibration)
