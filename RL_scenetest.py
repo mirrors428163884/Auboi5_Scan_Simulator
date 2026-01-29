@@ -167,7 +167,7 @@ class DMControlWrapper(gym.Env):
 
 
 def main():
-    model_paths = ["aubo_scene_scan_final.zip", "aubo_scan_safe_policy_final.zip"]
+    model_paths = ["aubo_scene_scan_final.zip"]
     model_path = None
     for p in model_paths:
         if os.path.exists(p):

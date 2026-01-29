@@ -48,7 +48,7 @@ except ImportError:
 
 
 class AuboRealRobot:
-    def __init__(self, ip='192.168.1.10', port=30004):
+    def __init__(self, ip='192.168.1.100', port=30004):
         self.ip = ip
         self.port = port
         self.client = None

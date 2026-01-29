@@ -79,9 +79,7 @@ class ArUcoInjector:
         </asset>
         """
 
-        # 【关键修复】添加 contype="0" conaffinity="0"
-        # 这会关闭该物体的物理碰撞检测，使其成为“幽灵”物体
-        # 即使它插入到桌子内部，也不会产生排斥力炸飞桌子
+        # 添加 contype="0" conaffinity="0"关闭该物体的物理碰撞检测，防止场景物品相互排斥
         body_str = f"""
         <body name="aruco_board" pos="{position[0]} {position[1]} {position[2]}" euler="0 0 0">
             <geom type="box" size="0.06 0.06 0.001" material="aruco_mat" contype="0" conaffinity="0"/>
@@ -315,7 +313,7 @@ class EnhancedSimulator:
             else:
                 current_tip = self.data.xpos[6].copy()
 
-        hover_pos = np.array(ARUCO_POS) + np.array([0, 0, 0.25])
+        hover_pos = np.array(ARUCO_POS) + np.array([0, 0, 0.2]) # 抬升一定高度
 
         steps = 50
         path = []

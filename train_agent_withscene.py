@@ -15,6 +15,7 @@ from stable_baselines3.common.monitor import Monitor
 
 # --- 修改这里: 引入带场景的新环境 ---
 from dm_rl_envwithscene import load_env
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 
 
 class DMControlWrapper(gym.Env):
@@ -96,19 +97,26 @@ if __name__ == "__main__":
     env_fns = [make_env_fn(i, seed=200) for i in range(num_cpu)]
     env = SubprocVecEnv(env_fns, start_method='spawn')  # 'spawn' 在某些系统上更稳定
 
+    # 自动计算观测值和奖励的移动平均值和方差,从而将输入缩放到 [-1, 1] 甚至更标准的正态分布，极大加速收敛和提高精度
+    env = VecNormalize(env,
+                       norm_obs=True,
+                       norm_reward=True,
+                       clip_obs=10.,
+                       gamma=0.99)
+
     # === PPO 模型配置 ===
     model = PPO(
         "MlpPolicy",
         env,
         verbose=1,
         learning_rate=3e-4,
-        n_steps=512,  # 增加步数，因为场景交互需要更多步骤
+        n_steps=1024,  # 增加步数，因为场景交互需要更多步骤
         batch_size=256,
         n_epochs=10,
         gamma=0.99,
         gae_lambda=0.95,
         clip_range=0.2,
-        ent_coef=0.01,  # 熵系数，鼓励探索
+        ent_coef=0.005,  # 熵系数，鼓励探索
         tensorboard_log=log_dir,
         device="cpu"  # 只有几维向量输入，CPU 通常比 GPU 快 (无图像输入)
     )

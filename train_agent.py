@@ -109,7 +109,7 @@ if __name__ == "__main__":
 
     print("开始避障增强训练...")
     try:
-        model.learn(total_timesteps=10000000, callback=checkpoint_callback)
+        model.learn(total_timesteps=5000000, callback=checkpoint_callback)
     except KeyboardInterrupt:
         print("手动停止训练，正在保存...")
     finally:

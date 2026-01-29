@@ -22,13 +22,13 @@ PHYSICS_TIMESTEP = 0.002  # 500Hz
 # --- 配置参数 ---
 # 保持您原有的配置
 MIN_HEIGHT_LIMIT = 0.2
-COLLISION_PENALTY = -500.0
-NAN_PENALTY = -1000.0
+COLLISION_PENALTY = -4000.0
+NAN_PENALTY = -4000.0
 COLLISION_TERMINATE = True
 
 # --- 场景扫描专用参数 ---
 TCP_OFFSET = np.array([0.0, 0.067, 0.0965])
-SAMPLE_CENTER = np.array([0.0, -0.54, 0.2])
+SAMPLE_CENTER = np.array([0.0, -0.49, 0.2])
 TARGET_SCAN_HEIGHT = 0.08
 
 
@@ -266,34 +266,57 @@ class AuboSceneScanTask(base.Task):
         real_tip_pos, real_wrist_mat = self._get_detector_tip_state(physics)
 
         target_pos = self._current_base_target[:3]
+
+        # 计算距离误差
+        dist = np.linalg.norm(target_pos - real_tip_pos)
+
+        # 计算姿态误差
         target_euler = self._current_base_target[3:]
         target_rot = R.from_euler('xyz', target_euler, degrees=False)
         target_mat = target_rot.as_matrix()
-
-        dist = np.linalg.norm(target_pos - real_tip_pos)
-
         r_diff = np.dot(real_wrist_mat, target_mat.T)
         trace = np.trace(r_diff)
         trace = np.clip(trace, -1.0, 3.0)
         angle_error = np.arccos(np.clip((trace - 1) / 2, -1.0, 1.0))
 
-        reward_pos = 15.0 * np.exp(-2000 * dist)
-        reward_rot = 1500.0 * np.exp(-1000 * angle_error)
+        # === 修改核心：多阶段奖励函数 ===
+        # 1. 距离惩罚（线性）：引导智能体从远处理靠进 (防止 exp(-2000*dist) 在远距离梯度为0)
+        #    当误差 > 1cm 时，主要靠这个线性项引导
+        reward_dist_linear = -200.0 * dist
 
-        # 获取第5关节角度 (索引为4)
-        q5 = physics.data.qpos[4]
+        # 2. 距离奖励（指数）：当靠近目标 (<2cm) 时，给予极高奖励以追求高精度
+        #    将 -2000 改为 -500 这种稍宽的系数，或者混合使用
+        reward_dist_precision = 2.0 * np.exp(-2000 * dist)  # 稍微放宽，让它更容易进入高分段
 
-        # 计算离奇异点的距离 (1.5708 rad = 90 deg)
-        dist_to_singularity = abs(abs(q5) - 1.5708)
+        # 3. 极高精度奖励（针尖）：只有当误差 < 2mm 时才激活的额外奖励
+        reward_dist_super = 4.0 * np.exp(-5000 * dist) if dist < 0.005 else 0.0
 
-        # 如果太靠近奇异点 (比如小于 0.1弧度)，给巨大的惩罚
-        if dist_to_singularity < 0.005:
-            reward_singularity = -20.0 * (0.1 - dist_to_singularity)
-            # print(q5)
-        else:
-            reward_singularity = 0.0
+        # 4. 姿态奖励
+        # 1. 线性部分：即使误差有 20 度 (0.34 rad)，也能提供梯度
+        #    系数 -2.0 意味着每减少 1 弧度误差，得 2 分
+        reward_rot_linear = -10.0 * angle_error
 
-        return reward_pos * reward_rot + reward_singularity
+        # 2. 宽指数部分（中等精度）：引导进入 5 度以内
+        #    -10 的系数：在 10 度 (0.17 rad) 时，e^(-1.7) ≈ 0.18，仍有显著梯度
+        reward_rot_wide = 2.0 * np.exp(-1000.0 * angle_error)
+
+        # 3. 尖峰指数部分（高精度）：引导进入 0.1 度以内
+        #    保留你原来的 -500 系数，甚至可以加到 -1000，但在上面两层引导下才能生效
+        reward_rot_precise = 4.0 * np.exp(-2000 * angle_error)
+
+        # 总姿态奖励
+        reward_rot = reward_rot_linear + reward_rot_wide + reward_rot_precise
+
+        # 总奖励 = 基础生存分(可选) + 线性引导 + 精度奖励
+        total_reward = (
+                2.0  # 生存奖励，鼓励不碰撞
+                + reward_dist_linear
+                + reward_dist_precision
+                + reward_dist_super
+                + reward_rot
+        )
+
+        return total_reward
 
     def get_termination(self, physics):
         is_safe, reason = self._check_collision_and_height(physics)
