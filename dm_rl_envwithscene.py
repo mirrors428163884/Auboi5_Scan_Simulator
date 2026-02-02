@@ -282,11 +282,11 @@ class AuboSceneScanTask(base.Task):
         # === 修改核心：多阶段奖励函数 ===
         # 1. 距离惩罚（线性）：引导智能体从远处理靠进 (防止 exp(-2000*dist) 在远距离梯度为0)
         #    当误差 > 1cm 时，主要靠这个线性项引导
-        reward_dist_linear = -200.0 * dist
+        reward_dist_linear = -500.0 * dist
 
         # 2. 距离奖励（指数）：当靠近目标 (<2cm) 时，给予极高奖励以追求高精度
         #    将 -2000 改为 -500 这种稍宽的系数，或者混合使用
-        reward_dist_precision = 2.0 * np.exp(-2000 * dist)  # 稍微放宽，让它更容易进入高分段
+        reward_dist_precision = 1.0 * np.exp(-2000 * dist)  # 稍微放宽，让它更容易进入高分段
 
         # 3. 极高精度奖励（针尖）：只有当误差 < 2mm 时才激活的额外奖励
         reward_dist_super = 4.0 * np.exp(-5000 * dist) if dist < 0.005 else 0.0
@@ -298,11 +298,11 @@ class AuboSceneScanTask(base.Task):
 
         # 2. 宽指数部分（中等精度）：引导进入 5 度以内
         #    -10 的系数：在 10 度 (0.17 rad) 时，e^(-1.7) ≈ 0.18，仍有显著梯度
-        reward_rot_wide = 2.0 * np.exp(-1000.0 * angle_error)
+        reward_rot_wide = 2.5 * np.exp(-200.0 * angle_error)
 
         # 3. 尖峰指数部分（高精度）：引导进入 0.1 度以内
         #    保留你原来的 -500 系数，甚至可以加到 -1000，但在上面两层引导下才能生效
-        reward_rot_precise = 4.0 * np.exp(-2000 * angle_error)
+        reward_rot_precise = 5.0 * np.exp(-3000 * angle_error)
 
         # 总姿态奖励
         reward_rot = reward_rot_linear + reward_rot_wide + reward_rot_precise
