@@ -4,6 +4,12 @@ MuJoCo 六轴机械臂曲面随形扫描仿真系统
 
 基于 MuJoCo 物理引擎和 CasADi 优化的六轴机械臂（Aubo i5）曲面扫描仿真项目。系统包含一个基于 PyQt5 的图形交互界面，支持路径规划可视化、实时仿真监控以及手眼相机视角的离屏渲染。
 
+```bash
+python3 sim_gui.py
+
+python3 sim_gui_v3.py
+```
+
 文件结构与功能说明
 
 1. sim_gui.py (仿真GUI主程序)
